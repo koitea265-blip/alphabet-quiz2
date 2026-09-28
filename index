@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アルファベットパズル クイズ（電子黒板モード）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.3.2/gifshot.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@600;700;800&family=Outfit:wght@600;700;800&family=Fredoka:wght@600;700&family=M+PLUS+Rounded+1c:wght@700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Lexend', 'Outfit', 'M PLUS Rounded 1c', sans-serif;
+      background: radial-gradient(circle at 50% 30%, #1e1b4b 0%, #0f172a 70%, #020617 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+      user-select: none;
+    }
+    .retro-shadow {
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    }
+    .drawer-transition {
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 9999px;
+    }
+    .standby-pattern {
+      background-image: radial-gradient(#6366f1 1.5px, transparent 1.5px);
+      background-size: 24px 24px;
+    }
+    /* Large thumb for easy dragging on touchscreens / interactive whiteboards */
+    input[type=range]::-webkit-slider-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #facc15;
+      cursor: grab;
+      border: 3px solid #0f172a;
+      box-shadow: 0 0 12px rgba(250, 204, 21, 0.7);
+      -webkit-appearance: none;
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #facc15;
+      cursor: grab;
+      border: 3px solid #0f172a;
+      box-shadow: 0 0 12px rgba(250, 204, 21, 0.7);
+    }
+    input[type=range]:active::-webkit-slider-thumb {
+      cursor: grabbing;
+      transform: scale(1.15);
+      background: #38bdf8;
+    }
+  </style>
+</head>
+<body class="text-slate-100 flex flex-col items-center justify-between min-h-screen p-2 sm:p-4">
+
+  <!-- Top Classroom Bar -->
+  <header class="w-full max-w-6xl flex items-center justify-between px-2 sm:px-4 py-2 z-20">
+    <div class="flex items-center gap-2 sm:gap-3">
+      <!-- Drawer Open Button -->
+      <button id="openSettingsBtn" class="bg-indigo-600/90 hover:bg-indigo-500 text-white font-bold px-3 py-2 rounded-2xl flex items-center gap-1.5 text-xs sm:text-sm shadow-md transition-all active:scale-95 border border-indigo-400/30">
+        <i class="fa-solid fa-gear"></i>
+        <span>設定</span>
+      </button>
+
+      <!-- Standby / Curtain Toggle -->
+      <button id="standbyToggleBtn" class="bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold px-3 py-2 rounded-2xl flex items-center gap-1.5 text-xs sm:text-sm border border-amber-500/30 shadow-md transition-all active:scale-95" title="生徒から画面を隠して準備します">
+        <i class="fa-solid fa-eye-slash" id="standbyIcon"></i>
+        <span id="standbyBtnText">かくす</span>
+      </button>
+
+      <!-- Status badge for students -->
+      <span id="quizBadge" class="bg-amber-400 text-slate-950 font-black text-xs sm:text-sm px-3.5 py-1.5 rounded-full shadow-md transition-all flex items-center gap-2">
+        <i class="fa-solid fa-hand-pointer text-amber-900"></i> スライダーを動かして合体させよう！
+      </span>
+    </div>
+
+    <!-- Right Quick Actions -->
+    <div class="flex items-center gap-2">
+      <!-- Answer Reveal Button -->
+      <button id="showAnswerBtn" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs sm:text-sm px-3.5 py-2 rounded-2xl shadow-lg transition-transform active:scale-95 flex items-center gap-1.5">
+        <i class="fa-solid fa-key"></i>
+        <span>答えをみる</span>
+      </button>
+
+      <!-- Sound Toggle -->
+      <button id="audioToggleBtn" class="bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white p-2 sm:p-2.5 rounded-2xl border border-slate-700 transition-colors" title="効果音 ON/OFF">
+        <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+      </button>
+
+      <!-- Fullscreen Toggle for Electronic Blackboard -->
+      <button id="fullscreenBtn" class="bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white p-2 sm:p-2.5 rounded-2xl border border-slate-700 transition-colors" title="大画面 / フルスクリーン">
+        <i class="fa-solid fa-expand" id="fullscreenIcon"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Showcase Arena -->
+  <main class="flex-1 w-full max-w-5xl flex flex-col items-center justify-center p-1 sm:p-2 relative z-10">
+    <!-- Big Canvas Stage -->
+    <div class="relative w-full max-w-[620px] aspect-square max-h-[72vh] bg-slate-950/70 rounded-3xl overflow-hidden shadow-2xl border-4 border-indigo-500/40 flex items-center justify-center">
+      <canvas id="quizCanvas" width="600" height="600" class="w-full h-full object-contain"></canvas>
+
+      <!-- Standby Curtain / Preparation Screen -->
+      <div id="standbyScreen" class="absolute inset-0 bg-slate-950/95 backdrop-blur-md z-20 flex flex-col items-center justify-center text-center p-4 sm:p-6 standby-pattern">
+        <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-indigo-600/30 border-2 border-indigo-400/50 flex items-center justify-center text-4xl sm:text-5xl mb-3 shadow-xl text-amber-300">
+          <i class="fa-solid fa-puzzle-piece"></i>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-black text-white tracking-wide mb-2" id="standbyTitle">第 1 問</h2>
+        <p class="text-slate-300 text-sm sm:text-base max-w-sm mb-6 leading-relaxed">
+          どんなアルファベットが出てくるかな？<br>
+          バラバラのピースをよく見て当ててみよう！
+        </p>
+
+        <div class="flex items-center gap-3">
+          <button id="startFromStandbyBtn" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-lg sm:text-xl px-10 py-3.5 rounded-2xl shadow-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2.5 border-2 border-emerald-300">
+            <i class="fa-solid fa-play"></i> スタート！
+          </button>
+        </div>
+      </div>
+
+      <!-- Answer Overlay -->
+      <div id="revealOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300 flex flex-col items-center justify-center z-30">
+        <div id="revealLetter" class="text-9xl sm:text-[13rem] font-black text-amber-300 drop-shadow-[0_16px_32px_rgba(0,0,0,0.9)] transform scale-50 transition-transform duration-300">
+          A
+        </div>
+        <p class="text-white text-lg sm:text-2xl font-black mt-2 tracking-widest uppercase">CORRECT!</p>
+      </div>
+    </div>
+
+    <!-- Manual Large Slider & Playback Bar -->
+    <div class="w-full max-w-[620px] mt-3 bg-slate-900/90 backdrop-blur-md px-4 py-3 rounded-2xl border border-slate-800 shadow-xl flex flex-col gap-2">
+      <!-- Interactive Teacher Scrubber Header -->
+      <div class="flex items-center justify-between text-xs font-bold text-slate-300 px-1">
+        <span class="flex items-center gap-1.5 text-amber-300">
+          <i class="fa-solid fa-arrows-left-right"></i>
+          <span>手動でうごかす（ゆっくり・もどす自由自在）</span>
+        </span>
+        <span id="sliderPercentLabel" class="text-indigo-400 font-black text-sm">0%</span>
+      </div>
+
+      <!-- Thick Touch-Friendly Slider -->
+      <div class="flex items-center gap-3">
+        <button id="resetSliderBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors" title="バラバラに戻す">
+          <i class="fa-solid fa-backward-step"></i>
+        </button>
+        <input type="range" id="timeSlider" min="0" max="1" step="0.002" value="0" 
+               class="w-full h-3.5 bg-slate-800 rounded-lg appearance-none cursor-pointer border border-slate-700">
+        <button id="completeSliderBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors" title="一気に完成させる">
+          <i class="fa-solid fa-forward-step"></i>
+        </button>
+      </div>
+
+      <!-- Secondary Controls & Status -->
+      <div class="flex items-center justify-between pt-1 border-t border-slate-800/80">
+        <div class="flex items-center gap-2">
+          <!-- Optional Auto-Play toggle if needed -->
+          <button id="playBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all">
+            <i class="fa-solid fa-play" id="playIcon"></i> <span id="playText">自動再生</span>
+          </button>
+          <button id="nextQuestionPrepareBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all">
+            <i class="fa-solid fa-arrow-right"></i> つぎの文字を選ぶ
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs text-slate-400">
+          <span id="currentLetterIndicator" class="bg-indigo-950 text-indigo-300 font-black px-2.5 py-0.5 rounded-lg border border-indigo-700/60">第 1 問</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Hidden Drawer Backdrop -->
+  <div id="drawerBackdrop" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-40 hidden transition-opacity"></div>
+
+  <!-- Left Slide-in Teacher & Settings Drawer -->
+  <aside id="settingsDrawer" class="fixed top-0 left-0 bottom-0 w-80 sm:w-96 bg-slate-900 border-r border-slate-800 z-50 transform -translate-x-full drawer-transition flex flex-col p-5 shadow-2xl overflow-y-auto custom-scroll">
+    <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-indigo-400 text-lg"></i>
+        <h2 class="text-base font-black text-white">先生用メニュー・設定</h2>
+      </div>
+      <button id="closeDrawerBtn" class="text-slate-400 hover:text-white w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Manual letter / word input (Teacher only) -->
+    <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/60 mb-4 flex flex-col gap-2.5">
+      <label class="text-xs font-black text-slate-300 flex items-center justify-between">
+        <span>出題文字をセット</span>
+        <span class="text-[10px] text-slate-400 font-normal">画面には映りません</span>
+      </label>
+      <div class="flex gap-2">
+        <input type="text" id="customInput" maxlength="3" value="A" 
+               class="w-20 px-3 py-1.5 text-lg font-black text-center tracking-wider rounded-xl border border-slate-600 focus:border-indigo-400 focus:outline-none bg-slate-900 text-white">
+        <button id="applyTextBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-all">
+          セットする
+        </button>
+        <button id="randomSelectBtn" class="bg-slate-700 hover:bg-slate-600 text-amber-300 font-bold px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5" title="ランダムで1文字選ぶ">
+          <i class="fa-solid fa-shuffle"></i> ランダム
+        </button>
+      </div>
+
+      <div class="mt-2 pt-2 border-t border-slate-700">
+        <div class="text-[11px] font-bold text-slate-400 mb-1.5">クリックでセット（開始はスタートボタン）:</div>
+        <div class="grid grid-cols-7 gap-1" id="drawerLetterGrid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Puzzle Settings -->
+    <div class="flex flex-col gap-4">
+      <!-- Upper / Lower Case Selection -->
+      <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1.5">文字のしゅるい（大文字 / 小文字）</label>
+        <div class="grid grid-cols-2 gap-2" id="letterCasePicker">
+          <button class="case-btn active py-2 text-xs font-bold rounded-xl border border-indigo-500 bg-indigo-600 text-white" data-case="upper">
+            大文字 (A B C)
+          </button>
+          <button class="case-btn py-2 text-xs font-bold rounded-xl border border-slate-700 bg-slate-800 text-slate-300" data-case="lower">
+            小文字 (a b c)
+          </button>
+        </div>
+      </div>
+
+      <!-- Grid (Pieces) -->
+      <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1.5">ピース分割数</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button class="grid-btn py-2 text-xs font-bold rounded-xl border border-slate-700 bg-slate-800 text-slate-300" data-grid="2">2×2 (4)</button>
+          <button class="grid-btn active py-2 text-xs font-bold rounded-xl border border-indigo-500 bg-indigo-600 text-white" data-grid="3">3×3 (9)</button>
+          <button class="grid-btn py-2 text-xs font-bold rounded-xl border border-slate-700 bg-slate-800 text-slate-300" data-grid="4">4×4 (16)</button>
+        </div>
+      </div>
+
+      <!-- Color theme -->
+      <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1.5">カラーテーマ</label>
+        <div class="grid grid-cols-2 gap-2" id="palettePicker">
+          <button class="theme-btn py-2 px-2 rounded-xl text-xs font-bold border border-indigo-500 bg-indigo-600/30 text-indigo-200 text-center" data-theme="vibrant">ポップ</button>
+          <button class="theme-btn py-2 px-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-800 text-slate-300 text-center" data-theme="pastel">パステル</button>
+          <button class="theme-btn py-2 px-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-800 text-slate-300 text-center" data-theme="neon">ネオン</button>
+          <button class="theme-btn py-2 px-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-800 text-slate-300 text-center" data-theme="wood">ウッディ</button>
+        </div>
+      </div>
+
+      <!-- Rotation amount -->
+      <div>
+        <label class="block text-[11px] font-bold text-slate-400 mb-1">回転の強さ</label>
+        <select id="rotationSelect" class="w-full text-xs font-bold bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-slate-200 focus:outline-none">
+          <option value="0.35">少しだけ傾く</option>
+          <option value="0.75" selected>半回転 (おすすめ)</option>
+          <option value="1">1回転</option>
+        </select>
+      </div>
+
+      <!-- Font Style -->
+      <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1.5">文字のフォント</label>
+        <div class="grid grid-cols-3 gap-1.5" id="fontStylePicker">
+          <button class="font-style-btn active py-2 text-[11px] font-bold border border-indigo-500 bg-indigo-600/30 text-white rounded-xl" data-font="clean">すっきり</button>
+          <button class="font-style-btn py-2 text-[11px] font-bold border border-slate-700 bg-slate-800 text-slate-300 rounded-xl" data-font="medium">くっきり</button>
+          <button class="font-style-btn py-2 text-[11px] font-bold border border-slate-700 bg-slate-800 text-slate-300 rounded-xl" data-font="round">まる文字</button>
+        </div>
+      </div>
+
+      <!-- Hint border -->
+      <label class="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer pt-1">
+        <input type="checkbox" id="showHintsCheckbox" class="rounded text-indigo-600 bg-slate-800 border-slate-700 focus:ring-0 h-4 w-4">
+        <span>薄い輪郭線（ヒント枠）を表示</span>
+      </label>
+
+      <!-- GIF Export Button in Drawer -->
+      <div class="pt-3 border-t border-slate-800">
+        <button id="exportGifBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md">
+          <i class="fa-solid fa-film"></i> 現在の文字でGIFを作成
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- GIF Export Modal -->
+  <div id="exportModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-slate-800 relative flex flex-col items-center text-center shadow-2xl text-slate-100">
+      <button id="closeModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-white w-8 h-8 rounded-full flex items-center justify-center bg-slate-800">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div id="exportLoadingSection" class="w-full flex flex-col items-center py-4">
+        <div class="w-14 h-14 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+        <h3 class="text-lg font-black mb-1">GIFアニメを生成中...</h3>
+        <p class="text-xs text-slate-400 mb-4">電子黒板や教材用にフレームを書き出しています</p>
+        <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+          <div id="exportProgressBar" class="bg-indigo-500 h-full w-0 transition-all duration-200"></div>
+        </div>
+        <span id="exportProgressText" class="text-xs font-bold text-indigo-400 mt-2">0%</span>
+      </div>
+
+      <div id="exportSuccessSection" class="w-full flex flex-col items-center py-2 hidden">
+        <div class="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xl mb-2">
+          <i class="fa-solid fa-check"></i>
+        </div>
+        <h3 class="text-lg font-black mb-1">GIFが完成しました！</h3>
+        <div class="w-56 h-56 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 my-3 flex items-center justify-center">
+          <img id="gifResultImg" src="" alt="Generated GIF" class="max-w-full max-h-full object-contain">
+        </div>
+        <a id="downloadGifLink" href="#" download="alphabet_puzzle.gif" 
+           class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 rounded-xl flex items-center justify-center gap-2">
+          <i class="fa-solid fa-download"></i> GIFをダウンロード
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keypress / Question Toast Notification -->
+  <div id="toast" class="fixed bottom-6 bg-indigo-600 text-white px-5 py-2.5 rounded-full font-bold text-sm shadow-xl transform translate-y-24 transition-transform duration-300 z-50 flex items-center gap-2 border border-indigo-400/40">
+    <i class="fa-solid fa-info-circle" id="toastIcon"></i>
+    <span id="toastMsg">お知らせ</span>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('quizCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const state = {
+      text: 'A',
+      letterCase: 'upper', // 'upper' | 'lower'
+      questionNumber: 1,
+      isStandby: true,
+      gridSize: 3,
+      duration: 7.0,
+      maxRotations: 0.75,
+      theme: 'vibrant',
+      fontStyle: 'clean',
+      showHints: false,
+      currentTime: 0,
+      progress: 0, // 0 (scattered) to 1 (assembled)
+      isPlaying: false, // Default is manual control!
+      soundEnabled: true,
+      lastTimestamp: 0,
+      pieces: [],
+      revealed: false
+    };
+
+    const THEMES = {
+      vibrant: {
+        canvasBg: '#0b0f19',
+        puzzleBg: '#2563eb',
+        letterColor: '#facc15',
+        letterStroke: '#0f172a',
+        pieceBorder: '#ffffff',
+        accent: '#ec4899',
+        sparkle: '#fde047'
+      },
+      pastel: {
+        canvasBg: '#1e293b',
+        puzzleBg: '#fed7aa',
+        letterColor: '#f43f5e',
+        letterStroke: '#881337',
+        pieceBorder: '#fff7ed',
+        accent: '#a7f3d0',
+        sparkle: '#fed7aa'
+      },
+      neon: {
+        canvasBg: '#030712',
+        puzzleBg: '#1e1b4b',
+        letterColor: '#00f5d4',
+        letterStroke: '#4c1d95',
+        pieceBorder: '#00f5d4',
+        accent: '#f72585',
+        sparkle: '#4cc9f0'
+      },
+      wood: {
+        canvasBg: '#18181b',
+        puzzleBg: '#b45309',
+        letterColor: '#fef3c7',
+        letterStroke: '#451a03',
+        pieceBorder: '#d97706',
+        accent: '#d97706',
+        sparkle: '#fde68a'
+      }
+    };
+
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSnapSound() {
+      if (!state.soundEnabled) return;
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.12);
+      } catch (e) {}
+    }
+
+    function playSuccessChime() {
+      if (!state.soundEnabled) return;
+      try {
+        initAudio();
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.08);
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + idx * 0.08 + 0.4);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + idx * 0.08);
+          osc.stop(audioCtx.currentTime + idx * 0.08 + 0.45);
+        });
+      } catch (e) {}
+    }
+
+    function generateJigsawMesh(rows, cols) {
+      const hEdges = [];
+      for (let r = 0; r < rows - 1; r++) {
+        hEdges[r] = [];
+        for (let c = 0; c < cols; c++) {
+          hEdges[r][c] = Math.random() < 0.5 ? 1 : -1;
+        }
+      }
+
+      const vEdges = [];
+      for (let r = 0; r < rows; r++) {
+        vEdges[r] = [];
+        for (let c = 0; c < cols - 1; c++) {
+          vEdges[r][c] = Math.random() < 0.5 ? 1 : -1;
+        }
+      }
+
+      return { hEdges, vEdges };
+    }
+
+    function drawTabEdge(ctx, x1, y1, x2, y2, tab) {
+      if (tab === 0) {
+        ctx.lineTo(x2, y2);
+        return;
+      }
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.hypot(dx, dy);
+      const ux = dx / len;
+      const uy = dy / len;
+      const nx = uy;
+      const ny = -ux;
+
+      const p = (u, v) => ({
+        x: x1 + ux * u * len + nx * v * len * tab,
+        y: y1 + uy * u * len + ny * v * len * tab
+      });
+
+      ctx.lineTo(p(0.35, 0).x, p(0.35, 0).y);
+      ctx.bezierCurveTo(p(0.36, -0.04).x, p(0.36, -0.04).y, p(0.32, 0.18).x, p(0.32, 0.18).y, p(0.50, 0.18).x, p(0.50, 0.18).y);
+      ctx.bezierCurveTo(p(0.68, 0.18).x, p(0.68, 0.18).y, p(0.64, -0.04).x, p(0.64, -0.04).y, p(0.65, 0).x, p(0.65, 0).y);
+      ctx.lineTo(x2, y2);
+    }
+
+    function drawJigsawPiecePath(ctx, x, y, w, h, topTab, rightTab, bottomTab, leftTab) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      drawTabEdge(ctx, x, y, x + w, y, topTab);
+      drawTabEdge(ctx, x + w, y, x + w, y + h, rightTab);
+      drawTabEdge(ctx, x + w, y + h, x, y + h, bottomTab);
+      drawTabEdge(ctx, x, y + h, x, y, leftTab);
+      ctx.closePath();
+    }
+
+    function initializePuzzle() {
+      const N = state.gridSize;
+      const mesh = generateJigsawMesh(N, N);
+      
+      const puzzleSize = 440;
+      const originX = (canvas.width - puzzleSize) / 2;
+      const originY = (canvas.height - puzzleSize) / 2;
+      const pieceSize = puzzleSize / N;
+
+      state.pieces = [];
+
+      const safeRadius = (pieceSize / 2) * 1.35;
+      const minMargin = safeRadius + 10;
+      const maxMargin = canvas.width - minMargin;
+      const step = (maxMargin - minMargin) / (N - 1);
+
+      const slots = [];
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          slots.push({
+            x: minMargin + c * step,
+            y: minMargin + r * step
+          });
+        }
+      }
+
+      const totalPieces = N * N;
+      const slotIndices = Array.from({ length: totalPieces }, (_, i) => i);
+      for (let i = slotIndices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [slotIndices[i], slotIndices[j]] = [slotIndices[j], slotIndices[i]];
+      }
+
+      for (let i = 0; i < totalPieces; i++) {
+        if (slotIndices[i] === i) {
+          const swapWith = (i + 1) % totalPieces;
+          [slotIndices[i], slotIndices[swapWith]] = [slotIndices[swapWith], slotIndices[i]];
+        }
+      }
+
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          const idx = r * N + c;
+          const assignedSlot = slots[slotIndices[idx]];
+
+          const topTab = r === 0 ? 0 : -mesh.hEdges[r - 1][c];
+          const bottomTab = r === N - 1 ? 0 : mesh.hEdges[r][c];
+          const leftTab = c === 0 ? 0 : -mesh.vEdges[r][c - 1];
+          const rightTab = c === N - 1 ? 0 : mesh.vEdges[r][c];
+
+          const targetX = originX + c * pieceSize;
+          const targetY = originY + r * pieceSize;
+          const targetCenterX = targetX + pieceSize / 2;
+          const targetCenterY = targetY + pieceSize / 2;
+
+          const spinDirection = Math.random() < 0.5 ? 1 : -1;
+          const startRotation = spinDirection * (Math.PI * 2 * state.maxRotations * (0.8 + Math.random() * 0.4));
+
+          state.pieces.push({
+            r, c,
+            topTab, rightTab, bottomTab, leftTab,
+            targetX, targetY,
+            targetCenterX, targetCenterY,
+            pieceSize,
+            startCenterX: assignedSlot.x + (Math.random() - 0.5) * 8,
+            startCenterY: assignedSlot.y + (Math.random() - 0.5) * 8,
+            startRotation,
+            floatFreq: 0.8 + Math.random() * 0.6,
+            floatPhase: Math.random() * Math.PI * 2
+          });
+        }
+      }
+
+      const minDistance = safeRadius * 1.95;
+      for (let iter = 0; iter < 24; iter++) {
+        for (let i = 0; i < state.pieces.length; i++) {
+          for (let j = i + 1; j < state.pieces.length; j++) {
+            const p1 = state.pieces[i];
+            const p2 = state.pieces[j];
+            const dx = p2.startCenterX - p1.startCenterX;
+            const dy = p2.startCenterY - p1.startCenterY;
+            const dist = Math.hypot(dx, dy) || 0.001;
+
+            if (dist < minDistance) {
+              const overlap = (minDistance - dist) * 0.5;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              p1.startCenterX -= nx * overlap;
+              p1.startCenterY -= ny * overlap;
+              p2.startCenterX += nx * overlap;
+              p2.startCenterY += ny * overlap;
+            }
+          }
+        }
+
+        state.pieces.forEach(p => {
+          p.startCenterX = Math.max(safeRadius, Math.min(canvas.width - safeRadius, p.startCenterX));
+          p.startCenterY = Math.max(safeRadius, Math.min(canvas.height - safeRadius, p.startCenterY));
+        });
+      }
+
+      document.getElementById('currentLetterIndicator').textContent = `第 ${state.questionNumber} 問`;
+    }
+
+    let bufferCanvas = document.createElement('canvas');
+    let bufferCtx = bufferCanvas.getContext('2d');
+    bufferCanvas.width = 600;
+    bufferCanvas.height = 600;
+
+    function renderSourceTextGraphic() {
+      const bCtx = bufferCtx;
+      const palette = THEMES[state.theme];
+      const w = bufferCanvas.width;
+      const h = bufferCanvas.height;
+
+      bCtx.clearRect(0, 0, w, h);
+
+      const puzzleSize = 440;
+      const originX = (w - puzzleSize) / 2;
+      const originY = (h - puzzleSize) / 2;
+
+      bCtx.save();
+      bCtx.fillStyle = palette.puzzleBg;
+      bCtx.beginPath();
+      bCtx.roundRect(originX, originY, puzzleSize, puzzleSize, 32);
+      bCtx.fill();
+
+      // Subtle pattern
+      bCtx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      for (let i = 0; i < puzzleSize; i += 28) {
+        bCtx.fillRect(originX + i, originY, 14, puzzleSize);
+      }
+
+      let fontFamily = "'Lexend', 'Outfit', sans-serif";
+      let fontWeight = 650;
+      let strokeWidth = 8;
+
+      if (state.fontStyle === 'medium') {
+        fontWeight = 750;
+        strokeWidth = 12;
+      } else if (state.fontStyle === 'round') {
+        fontFamily = "'Fredoka', 'M PLUS Rounded 1c', sans-serif";
+        fontWeight = 700;
+        strokeWidth = 10;
+      }
+
+      bCtx.textAlign = 'center';
+      bCtx.textBaseline = 'middle';
+      
+      const isLower = state.letterCase === 'lower';
+      const fontSize = state.text.length === 1 ? (isLower ? 340 : 380) : (state.text.length === 2 ? 250 : 180);
+      bCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+
+      const yOffset = isLower ? 0 : 8;
+
+      bCtx.save();
+      bCtx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      bCtx.shadowBlur = 16;
+      bCtx.shadowOffsetY = 10;
+
+      bCtx.lineWidth = strokeWidth;
+      bCtx.strokeStyle = palette.letterStroke;
+      bCtx.lineJoin = 'round';
+      bCtx.strokeText(state.text, w / 2, h / 2 + yOffset);
+
+      bCtx.fillStyle = palette.letterColor;
+      bCtx.fillText(state.text, w / 2, h / 2 + yOffset);
+      bCtx.restore();
+
+      if (strokeWidth >= 10) {
+        bCtx.lineWidth = 4;
+        bCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        bCtx.strokeText(state.text, w / 2, h / 2 + yOffset - 3);
+      }
+
+      bCtx.restore();
+    }
+
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    let hasPlayedSnap = false;
+    let hasPlayedChime = false;
+
+    function renderFrame(progress) {
+      const palette = THEMES[state.theme];
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.fillStyle = palette.canvasBg;
+      ctx.fillRect(0, 0, w, h);
+
+      // Stars
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      for (let x = 25; x < w; x += 50) {
+        for (let y = 25; y < h; y += 50) {
+          ctx.beginPath();
+          ctx.arc(x, y, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      const puzzleSize = 440;
+      const originX = (w - puzzleSize) / 2;
+      const originY = (h - puzzleSize) / 2;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.beginPath();
+      ctx.roundRect(originX, originY, puzzleSize, puzzleSize, 32);
+      ctx.fill();
+
+      ctx.strokeStyle = state.showHints ? 'rgba(255, 255, 255, 0.35)' : 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([10, 10]);
+      ctx.strokeRect(originX, originY, puzzleSize, puzzleSize);
+      ctx.restore();
+
+      const quizBadge = document.getElementById('quizBadge');
+
+      // Direct, responsive slider control:
+      const assembleProgress = Math.max(0, Math.min(1, progress));
+      const easeAssemble = easeInOutCubic(assembleProgress);
+
+      if (assembleProgress === 0) {
+        quizBadge.className = 'bg-amber-400 text-slate-950 font-black text-xs sm:text-sm px-3.5 py-1.5 rounded-full shadow-md transition-all flex items-center gap-2';
+        quizBadge.innerHTML = '<i class="fa-solid fa-hand-pointer text-amber-900"></i> スライダーを動かして合体させよう！';
+      } else if (assembleProgress < 0.98) {
+        quizBadge.className = 'bg-indigo-500 text-white font-black text-xs sm:text-sm px-3.5 py-1.5 rounded-full shadow-md transition-all flex items-center gap-2';
+        quizBadge.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> あつまってくるよ…！';
+      } else {
+        quizBadge.className = 'bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm px-3.5 py-1.5 rounded-full shadow-md transition-all flex items-center gap-2';
+        quizBadge.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-900"></i> かんせい！ 声に出して読もう！';
+      }
+
+      if (assembleProgress >= 0.98 && !hasPlayedSnap) {
+        playSnapSound();
+        hasPlayedSnap = true;
+      } else if (assembleProgress < 0.9) {
+        hasPlayedSnap = false;
+      }
+
+      if (assembleProgress >= 0.99 && !hasPlayedChime) {
+        playSuccessChime();
+        hasPlayedChime = true;
+      } else if (assembleProgress < 0.9) {
+        hasPlayedChime = false;
+      }
+
+      state.pieces.forEach(p => {
+        let curX, curY, curRot;
+
+        if (assembleProgress <= 0) {
+          curX = p.startCenterX;
+          curY = p.startCenterY;
+          curRot = p.startRotation;
+        } else {
+          curX = p.startCenterX + (p.targetCenterX - p.startCenterX) * easeAssemble;
+          curY = p.startCenterY + (p.targetCenterY - p.startCenterY) * easeAssemble;
+          curRot = p.startRotation * (1 - easeAssemble);
+        }
+
+        ctx.save();
+        ctx.translate(curX, curY);
+        ctx.rotate(curRot);
+
+        const halfSize = p.pieceSize / 2;
+
+        if (assembleProgress < 0.99) {
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+          ctx.shadowBlur = 18;
+          ctx.shadowOffsetX = 5;
+          ctx.shadowOffsetY = 10;
+          drawJigsawPiecePath(ctx, -halfSize, -halfSize, p.pieceSize, p.pieceSize, p.topTab, p.rightTab, p.bottomTab, p.leftTab);
+          ctx.fillStyle = 'rgba(0,0,0,0.25)';
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.save();
+        drawJigsawPiecePath(ctx, -halfSize, -halfSize, p.pieceSize, p.pieceSize, p.topTab, p.rightTab, p.bottomTab, p.leftTab);
+        ctx.clip();
+
+        ctx.drawImage(
+          bufferCanvas,
+          -p.targetCenterX,
+          -p.targetCenterY
+        );
+        ctx.restore();
+
+        drawJigsawPiecePath(ctx, -halfSize, -halfSize, p.pieceSize, p.pieceSize, p.topTab, p.rightTab, p.bottomTab, p.leftTab);
+        ctx.lineWidth = assembleProgress >= 0.99 ? 1.5 : 2.5;
+        ctx.strokeStyle = palette.pieceBorder;
+        ctx.stroke();
+
+        ctx.restore();
+      });
+
+      if (assembleProgress >= 0.98) {
+        const numSparkles = 10;
+        for (let i = 0; i < numSparkles; i++) {
+          const angle = (i / numSparkles) * Math.PI * 2;
+          const radius = puzzleSize * 0.55;
+          const sx = canvas.width / 2 + Math.cos(angle) * radius;
+          const sy = canvas.height / 2 + Math.sin(angle) * radius;
+          ctx.fillStyle = palette.sparkle;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function animate(timestamp) {
+      if (!state.lastTimestamp) state.lastTimestamp = timestamp;
+      const deltaTime = (timestamp - state.lastTimestamp) / 1000;
+      state.lastTimestamp = timestamp;
+
+      if (state.isPlaying) {
+        state.progress += deltaTime / state.duration;
+
+        if (state.progress >= 1.0) {
+          state.progress = 1.0;
+          state.isPlaying = false;
+          updatePlayButtonUI();
+        }
+
+        updateSliderUI(state.progress);
+        renderFrame(state.progress);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function updateSliderUI(prog) {
+      const timeSlider = document.getElementById('timeSlider');
+      const percentLabel = document.getElementById('sliderPercentLabel');
+      timeSlider.value = prog;
+      percentLabel.textContent = `${Math.round(prog * 100)}%`;
+    }
+
+    function setManualProgress(prog) {
+      state.isPlaying = false;
+      updatePlayButtonUI();
+      state.progress = Math.max(0, Math.min(1, prog));
+      updateSliderUI(state.progress);
+      renderFrame(state.progress);
+    }
+
+    function updatePlayButtonUI() {
+      const playIcon = document.getElementById('playIcon');
+      const playText = document.getElementById('playText');
+      if (state.isPlaying) {
+        playIcon.className = 'fa-solid fa-pause text-amber-300';
+        playText.textContent = '停止';
+      } else {
+        playIcon.className = 'fa-solid fa-play';
+        playText.textContent = '自動再生';
+      }
+    }
+
+    function toggleStandby(forceState = null) {
+      state.isStandby = forceState !== null ? forceState : !state.isStandby;
+      const standbyScreen = document.getElementById('standbyScreen');
+      const standbyIcon = document.getElementById('standbyIcon');
+      const standbyBtnText = document.getElementById('standbyBtnText');
+
+      if (state.isStandby) {
+        standbyScreen.classList.remove('hidden');
+        document.getElementById('standbyTitle').textContent = `第 ${state.questionNumber} 問の準備`;
+        standbyIcon.className = 'fa-solid fa-eye text-emerald-400';
+        standbyBtnText.textContent = 'ひらく';
+        state.isPlaying = false;
+        updatePlayButtonUI();
+      } else {
+        standbyScreen.classList.add('hidden');
+        standbyIcon.className = 'fa-solid fa-eye-slash text-amber-300';
+        standbyBtnText.textContent = 'かくす';
+      }
+    }
+
+    // Set letter WITHOUT auto-starting (Requires pressing Start button)
+    function selectLetterForStandby(letter) {
+      state.text = state.letterCase === 'lower' ? letter.toLowerCase() : letter.toUpperCase();
+      document.getElementById('customInput').value = state.text;
+
+      renderSourceTextGraphic();
+      initializePuzzle();
+      hasPlayedSnap = false;
+      hasPlayedChime = false;
+      setManualProgress(0); // reset to scattered 0%
+    }
+
+    function populateDrawerLetters() {
+      const isLower = state.letterCase === 'lower';
+      const alphabet = isLower ? 'abcdefghijklmnopqrstuvwxyz' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const container = document.getElementById('drawerLetterGrid');
+      container.innerHTML = '';
+      for (let ch of alphabet) {
+        const b = document.createElement('button');
+        b.textContent = ch;
+        b.className = 'py-1 text-xs font-black rounded-lg bg-slate-800 hover:bg-indigo-600 hover:text-white border border-slate-700 text-slate-300 transition-colors';
+        b.addEventListener('click', () => {
+          selectLetterForStandby(ch);
+          document.getElementById('settingsDrawer').classList.add('-translate-x-full');
+          document.getElementById('drawerBackdrop').classList.add('hidden');
+          showToast(`文字「${ch}」をセットしました（スタートで開始）`);
+        });
+        container.appendChild(b);
+      }
+    }
+
+    function startCurrentPuzzle() {
+      initAudio();
+      toggleStandby(false);
+      setManualProgress(0); // Ready at 0% for teacher or kids to slide manually!
+      showToast(`第 ${state.questionNumber} 問を開始しました`);
+    }
+
+    function setupDrawer() {
+      const settingsDrawer = document.getElementById('settingsDrawer');
+      const drawerBackdrop = document.getElementById('drawerBackdrop');
+      const openSettingsBtn = document.getElementById('openSettingsBtn');
+      const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+
+      function openDrawer() {
+        settingsDrawer.classList.remove('-translate-x-full');
+        drawerBackdrop.classList.remove('hidden');
+      }
+
+      function closeDrawer() {
+        settingsDrawer.classList.add('-translate-x-full');
+        drawerBackdrop.classList.add('hidden');
+      }
+
+      openSettingsBtn.addEventListener('click', openDrawer);
+      closeDrawerBtn.addEventListener('click', closeDrawer);
+      drawerBackdrop.addEventListener('click', closeDrawer);
+
+      populateDrawerLetters();
+    }
+
+    function setupKeyboardShortcuts() {
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+          return;
+        }
+
+        // Direct Alphabet Keys A-Z (Respects uppercase / lowercase mode)
+        if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+          initAudio();
+          const chosen = state.letterCase === 'lower' ? e.key.toLowerCase() : e.key.toUpperCase();
+          selectLetterForStandby(chosen);
+          showToast('文字をセットしました（スタートを押して開始）');
+          return;
+        }
+
+        // Spacebar toggles Play/Pause or starts from standby
+        if (e.code === 'Space') {
+          e.preventDefault();
+          initAudio();
+          if (state.isStandby) {
+            startCurrentPuzzle();
+          } else {
+            state.isPlaying = !state.isPlaying;
+            updatePlayButtonUI();
+          }
+          return;
+        }
+
+        // Arrow keys to manually adjust puzzle assembly smoothly
+        if (e.code === 'ArrowRight') {
+          e.preventDefault();
+          setManualProgress(state.progress + 0.05);
+        } else if (e.code === 'ArrowLeft') {
+          e.preventDefault();
+          setManualProgress(state.progress - 0.05);
+        }
+
+        // 'R' resets to 0%
+        if (e.key === 'r' || e.key === 'R') {
+          setManualProgress(0);
+          return;
+        }
+
+        // 'Enter' reveals answer
+        if (e.key === 'Enter') {
+          document.getElementById('showAnswerBtn').click();
+          return;
+        }
+      });
+    }
+
+    function setupEventListeners() {
+      // Standby / Curtain toggle button
+      document.getElementById('standbyToggleBtn').addEventListener('click', () => {
+        toggleStandby();
+      });
+
+      // Start Button from Standby (Starts when teacher clicks this!)
+      document.getElementById('startFromStandbyBtn').addEventListener('click', () => {
+        startCurrentPuzzle();
+      });
+
+      // Random Select button in teacher drawer (safely guarded)
+      const randomBtn = document.getElementById('randomSelectBtn');
+      if (randomBtn) {
+        randomBtn.addEventListener('click', () => {
+          initAudio();
+          const alphabet = state.letterCase === 'lower' ? 'abcdefghijklmnopqrstuvwxyz' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+          let nextChar;
+          do {
+            nextChar = alphabet[Math.floor(Math.random() * alphabet.length)];
+          } while (nextChar === state.text);
+          selectLetterForStandby(nextChar);
+          showToast(`ランダムで「${nextChar}」をセットしました`);
+        });
+      }
+
+      // Upper / Lower Case toggle buttons
+      const caseBtns = document.querySelectorAll('.case-btn');
+      caseBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          caseBtns.forEach(b => {
+            b.classList.remove('active', 'border-indigo-500', 'bg-indigo-600', 'text-white');
+            b.classList.add('border-slate-700', 'bg-slate-800', 'text-slate-300');
+          });
+          btn.classList.add('active', 'border-indigo-500', 'bg-indigo-600', 'text-white');
+          btn.classList.remove('border-slate-700', 'bg-slate-800', 'text-slate-300');
+
+          state.letterCase = btn.dataset.case;
+          selectLetterForStandby(state.text);
+          populateDrawerLetters();
+          showToast(state.letterCase === 'upper' ? '大文字モードに切り替えました' : '小文字モードに切り替えました');
+        });
+      });
+
+      // Next Question Preparation (Opens standby curtain to let teacher choose next)
+      document.getElementById('nextQuestionPrepareBtn').addEventListener('click', () => {
+        initAudio();
+        state.questionNumber++;
+        toggleStandby(true);
+      });
+
+      // Manual Slider events (Touch / Mouse dragging)
+      const timeSlider = document.getElementById('timeSlider');
+      timeSlider.addEventListener('input', (e) => {
+        initAudio();
+        setManualProgress(parseFloat(e.target.value));
+      });
+
+      // Slider quick reset and complete buttons
+      document.getElementById('resetSliderBtn').addEventListener('click', () => {
+        setManualProgress(0);
+      });
+      document.getElementById('completeSliderBtn').addEventListener('click', () => {
+        setManualProgress(1);
+      });
+
+      // Optional Auto Play Button
+      document.getElementById('playBtn').addEventListener('click', () => {
+        initAudio();
+        if (state.progress >= 1.0) {
+          state.progress = 0;
+        }
+        state.isPlaying = !state.isPlaying;
+        updatePlayButtonUI();
+      });
+
+      // Reveal answer
+      const showAnswerBtn = document.getElementById('showAnswerBtn');
+      const revealOverlay = document.getElementById('revealOverlay');
+      const revealLetter = document.getElementById('revealLetter');
+
+      showAnswerBtn.addEventListener('click', () => {
+        initAudio();
+        playSuccessChime();
+        revealLetter.textContent = state.text;
+        revealOverlay.classList.remove('opacity-0', 'pointer-events-none');
+        revealOverlay.classList.add('opacity-100');
+        revealLetter.classList.remove('scale-50');
+        revealLetter.classList.add('scale-100');
+
+        setTimeout(() => {
+          revealOverlay.classList.remove('opacity-100');
+          revealOverlay.classList.add('opacity-0', 'pointer-events-none');
+          revealLetter.classList.remove('scale-100');
+          revealLetter.classList.add('scale-50');
+        }, 2200);
+      });
+
+      // Sound toggle
+      const audioToggleBtn = document.getElementById('audioToggleBtn');
+      const soundIcon = document.getElementById('soundIcon');
+      audioToggleBtn.addEventListener('click', () => {
+        state.soundEnabled = !state.soundEnabled;
+        if (state.soundEnabled) {
+          initAudio();
+          soundIcon.className = 'fa-solid fa-volume-high text-indigo-400';
+          showToast('効果音: ON');
+        } else {
+          soundIcon.className = 'fa-solid fa-volume-xmark text-slate-500';
+          showToast('効果音: OFF');
+        }
+      });
+
+      // Fullscreen toggle
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      const fullscreenIcon = document.getElementById('fullscreenIcon');
+      fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+          fullscreenIcon.className = 'fa-solid fa-compress';
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          }
+          fullscreenIcon.className = 'fa-solid fa-expand';
+        }
+      });
+
+      // Grid Size
+      const gridBtns = document.querySelectorAll('.grid-btn');
+      gridBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          gridBtns.forEach(b => {
+            b.classList.remove('active', 'border-indigo-500', 'bg-indigo-600', 'text-white');
+            b.classList.add('border-slate-700', 'bg-slate-800', 'text-slate-300');
+          });
+          btn.classList.add('active', 'border-indigo-500', 'bg-indigo-600', 'text-white');
+          btn.classList.remove('border-slate-700', 'bg-slate-800', 'text-slate-300');
+
+          state.gridSize = parseInt(btn.dataset.grid);
+          initializePuzzle();
+          renderFrame(state.progress);
+        });
+      });
+
+      // Themes
+      const themeBtns = document.querySelectorAll('.theme-btn');
+      themeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          themeBtns.forEach(b => {
+            b.classList.remove('border-indigo-500', 'bg-indigo-600/30', 'text-indigo-200');
+            b.classList.add('border-slate-700', 'bg-slate-800', 'text-slate-300');
+          });
+          btn.classList.add('border-indigo-500', 'bg-indigo-600/30', 'text-indigo-200');
+          btn.classList.remove('border-slate-700', 'bg-slate-800', 'text-slate-300');
+
+          state.theme = btn.dataset.theme;
+          renderSourceTextGraphic();
+          renderFrame(state.progress);
+        });
+      });
+
+      // Rotation Select
+      document.getElementById('rotationSelect').addEventListener('change', (e) => {
+        state.maxRotations = parseFloat(e.target.value);
+        initializePuzzle();
+        renderFrame(state.progress);
+      });
+
+      // Hints Checkbox
+      document.getElementById('showHintsCheckbox').addEventListener('change', (e) => {
+        state.showHints = e.target.checked;
+        renderFrame(state.progress);
+      });
+
+      // Font Style Picker
+      const fontBtns = document.querySelectorAll('.font-style-btn');
+      fontBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          fontBtns.forEach(b => {
+            b.classList.remove('active', 'border-indigo-500', 'bg-indigo-600/30', 'text-white');
+            b.classList.add('border-slate-700', 'bg-slate-800', 'text-slate-300');
+          });
+          btn.classList.add('active', 'border-indigo-500', 'bg-indigo-600/30', 'text-white');
+          btn.classList.remove('border-slate-700', 'bg-slate-800', 'text-slate-300');
+
+          state.fontStyle = btn.dataset.font;
+          renderSourceTextGraphic();
+          renderFrame(state.progress);
+        });
+      });
+
+      // Custom Input & Buttons in Drawer
+      const customInput = document.getElementById('customInput');
+      const applyTextBtn = document.getElementById('applyTextBtn');
+      const submitText = () => {
+        let val = customInput.value.trim();
+        val = state.letterCase === 'lower' ? val.toLowerCase() : val.toUpperCase();
+        if (!val) val = state.letterCase === 'lower' ? 'a' : 'A';
+        selectLetterForStandby(val);
+        showToast(`「${val}」をセットしました（スタートで開始）`);
+      };
+
+      applyTextBtn.addEventListener('click', submitText);
+      customInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitText();
+      });
+
+      setupGifExport();
+    }
+
+    function setupGifExport() {
+      const exportModal = document.getElementById('exportModal');
+      const closeModalBtn = document.getElementById('closeModalBtn');
+      const exportLoadingSection = document.getElementById('exportLoadingSection');
+      const exportSuccessSection = document.getElementById('exportSuccessSection');
+      const exportProgressBar = document.getElementById('exportProgressBar');
+      const exportProgressText = document.getElementById('exportProgressText');
+      const gifResultImg = document.getElementById('gifResultImg');
+      const downloadGifLink = document.getElementById('downloadGifLink');
+
+      closeModalBtn.addEventListener('click', () => {
+        exportModal.classList.add('hidden');
+      });
+
+      document.getElementById('exportGifBtn').addEventListener('click', () => {
+        document.getElementById('settingsDrawer').classList.add('-translate-x-full');
+        document.getElementById('drawerBackdrop').classList.add('hidden');
+
+        state.isPlaying = false;
+        updatePlayButtonUI();
+
+        exportModal.classList.remove('hidden');
+        exportLoadingSection.classList.remove('hidden');
+        exportSuccessSection.classList.add('hidden');
+        exportProgressBar.style.width = '5%';
+        exportProgressText.textContent = 'フレームを抽出中...';
+
+        const gifWidth = 400;
+        const gifHeight = 400;
+        const fps = 12;
+        const totalFrames = Math.floor(state.duration * fps);
+        const frames = [];
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = gifWidth;
+        tempCanvas.height = gifHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        const savedSound = state.soundEnabled;
+        state.soundEnabled = false;
+
+        for (let i = 0; i < totalFrames; i++) {
+          const p = i / totalFrames;
+          renderFrame(p);
+          tempCtx.drawImage(canvas, 0, 0, gifWidth, gifHeight);
+          frames.push(tempCanvas.toDataURL('image/png'));
+        }
+
+        renderFrame(state.progress);
+        state.soundEnabled = savedSound;
+        exportProgressBar.style.width = '40%';
+        exportProgressText.textContent = 'GIFエンコード中 (40%)...';
+
+        gifshot.createGIF({
+          images: frames,
+          gifWidth: gifWidth,
+          gifHeight: gifHeight,
+          interval: 1 / fps,
+          numWorkers: 2,
+          progressCallback: function(captureProgress) {
+            const pct = Math.round(40 + captureProgress * 55);
+            exportProgressBar.style.width = `${pct}%`;
+            exportProgressText.textContent = `GIFエンコード中 (${pct}%)...`;
+          }
+        }, function(obj) {
+          if (!obj.error) {
+            exportProgressBar.style.width = '100%';
+            exportProgressText.textContent = '完成！';
+
+            gifResultImg.src = obj.image;
+            downloadGifLink.href = obj.image;
+            downloadGifLink.download = `alphabet_quiz_${state.text}.gif`;
+
+            setTimeout(() => {
+              exportLoadingSection.classList.add('hidden');
+              exportSuccessSection.classList.remove('hidden');
+            }, 350);
+          } else {
+            showToast('GIF生成に失敗しました');
+            exportModal.classList.add('hidden');
+          }
+        });
+      });
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.textContent = msg;
+
+      toast.classList.remove('translate-y-24');
+      toast.classList.add('translate-y-0');
+
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('translate-y-0');
+        toast.classList.add('translate-y-24');
+      }, 2000);
+    }
+
+    window.onload = function() {
+      setupDrawer();
+      setupKeyboardShortcuts();
+      setupEventListeners();
+      
+      selectLetterForStandby('A');
+      toggleStandby(true);
+      setManualProgress(0);
+      animate(0);
+    };
+  </script>
+</body>
+</html>
