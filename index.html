@@ -814,19 +814,7 @@
         ctx.restore();
       });
 
-      if (assembleProgress >= 0.98) {
-        const numSparkles = 10;
-        for (let i = 0; i < numSparkles; i++) {
-          const angle = (i / numSparkles) * Math.PI * 2;
-          const radius = puzzleSize * 0.55;
-          const sx = canvas.width / 2 + Math.cos(angle) * radius;
-          const sy = canvas.height / 2 + Math.sin(angle) * radius;
-          ctx.fillStyle = palette.sparkle;
-          ctx.beginPath();
-          ctx.arc(sx, sy, 5, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
+      // (ピース外周の円周ドット演出を削除しました)
     }
 
     function animate(timestamp) {
