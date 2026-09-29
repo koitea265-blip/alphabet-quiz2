@@ -128,6 +128,9 @@
           <button id="startFromStandbyBtn" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-lg sm:text-xl px-10 py-3.5 rounded-2xl shadow-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2.5 border-2 border-emerald-300">
             <i class="fa-solid fa-play"></i> スタート！
           </button>
+          <button id="standbyRerollBtn" class="bg-slate-800/90 hover:bg-slate-700 text-amber-300 font-bold text-xs sm:text-sm px-4 py-3 rounded-2xl border border-slate-700 flex items-center gap-1.5 transition-all shadow-md active:scale-95" title="生徒に文字を見せずに別の文字を再抽選します">
+            <i class="fa-solid fa-shuffle"></i> 別の文字にする
+          </button>
         </div>
       </div>
 
@@ -170,8 +173,8 @@
           <button id="playBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all">
             <i class="fa-solid fa-play" id="playIcon"></i> <span id="playText">自動再生</span>
           </button>
-          <button id="nextQuestionPrepareBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all">
-            <i class="fa-solid fa-arrow-right"></i> つぎの文字を選ぶ
+          <button id="nextQuestionPrepareBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md">
+            <i class="fa-solid fa-shuffle" id="nextQuestionIcon"></i> <span id="nextQuestionText">つぎの問題 (ランダム)</span>
           </button>
         </div>
 
@@ -200,17 +203,28 @@
     <!-- Manual letter / word input (Teacher only) -->
     <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/60 mb-4 flex flex-col gap-2.5">
       <label class="text-xs font-black text-slate-300 flex items-center justify-between">
-        <span>出題文字をセット</span>
+        <span>出題モードと文字</span>
         <span class="text-[10px] text-slate-400 font-normal">画面には映りません</span>
       </label>
+
+      <!-- Mode Selector -->
+      <div class="grid grid-cols-2 gap-2 mb-1" id="quizModePicker">
+        <button id="modeRandomBtn" class="py-2 text-xs font-bold rounded-xl border border-indigo-500 bg-indigo-600 text-white flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-shuffle"></i> 毎問ランダム
+        </button>
+        <button id="modeManualBtn" class="py-2 text-xs font-bold rounded-xl border border-slate-700 bg-slate-800 text-slate-300 flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-hand-pointer"></i> 手動で指定
+        </button>
+      </div>
+
       <div class="flex gap-2">
         <input type="text" id="customInput" maxlength="3" value="A" 
                class="w-20 px-3 py-1.5 text-lg font-black text-center tracking-wider rounded-xl border border-slate-600 focus:border-indigo-400 focus:outline-none bg-slate-900 text-white">
         <button id="applyTextBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-all">
           セットする
         </button>
-        <button id="randomSelectBtn" class="bg-slate-700 hover:bg-slate-600 text-amber-300 font-bold px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5" title="ランダムで1文字選ぶ">
-          <i class="fa-solid fa-shuffle"></i> ランダム
+        <button id="randomSelectBtn" class="bg-slate-700 hover:bg-slate-600 text-amber-300 font-bold px-3 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5" title="今すぐランダムで1文字選ぶ">
+          <i class="fa-solid fa-shuffle"></i> 再抽選
         </button>
       </div>
 
@@ -339,6 +353,7 @@
     const state = {
       text: 'A',
       letterCase: 'upper', // 'upper' | 'lower'
+      isRandomMode: true, // Continuous random mode enabled by default
       questionNumber: 1,
       isStandby: true,
       gridSize: 3,
@@ -894,6 +909,36 @@
       setManualProgress(0); // reset to scattered 0%
     }
 
+    // Pick a new random letter guaranteed to be different from current
+    function pickRandomLetter() {
+      const alphabet = state.letterCase === 'lower' ? 'abcdefghijklmnopqrstuvwxyz' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let nextChar;
+      do {
+        nextChar = alphabet[Math.floor(Math.random() * alphabet.length)];
+      } while (nextChar === state.text && alphabet.length > 1);
+      selectLetterForStandby(nextChar);
+      return nextChar;
+    }
+
+    function updateQuizModeUI() {
+      const modeRandomBtn = document.getElementById('modeRandomBtn');
+      const modeManualBtn = document.getElementById('modeManualBtn');
+      const nextQuestionText = document.getElementById('nextQuestionText');
+      const nextQuestionIcon = document.getElementById('nextQuestionIcon');
+
+      if (state.isRandomMode) {
+        modeRandomBtn.className = 'py-2 text-xs font-bold rounded-xl border border-indigo-500 bg-indigo-600 text-white flex items-center justify-center gap-1.5';
+        modeManualBtn.className = 'py-2 text-xs font-bold rounded-xl border border-slate-700 bg-slate-800 text-slate-300 flex items-center justify-center gap-1.5';
+        if (nextQuestionText) nextQuestionText.textContent = 'つぎの問題 (ランダム)';
+        if (nextQuestionIcon) nextQuestionIcon.className = 'fa-solid fa-shuffle';
+      } else {
+        modeManualBtn.className = 'py-2 text-xs font-bold rounded-xl border border-indigo-500 bg-indigo-600 text-white flex items-center justify-center gap-1.5';
+        modeRandomBtn.className = 'py-2 text-xs font-bold rounded-xl border border-slate-700 bg-slate-800 text-slate-300 flex items-center justify-center gap-1.5';
+        if (nextQuestionText) nextQuestionText.textContent = 'つぎの文字を選ぶ';
+        if (nextQuestionIcon) nextQuestionIcon.className = 'fa-solid fa-arrow-right';
+      }
+    }
+
     function populateDrawerLetters() {
       const isLower = state.letterCase === 'lower';
       const alphabet = isLower ? 'abcdefghijklmnopqrstuvwxyz' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -904,6 +949,8 @@
         b.textContent = ch;
         b.className = 'py-1 text-xs font-black rounded-lg bg-slate-800 hover:bg-indigo-600 hover:text-white border border-slate-700 text-slate-300 transition-colors';
         b.addEventListener('click', () => {
+          state.isRandomMode = false;
+          updateQuizModeUI();
           selectLetterForStandby(ch);
           document.getElementById('settingsDrawer').classList.add('-translate-x-full');
           document.getElementById('drawerBackdrop').classList.add('hidden');
@@ -953,6 +1000,8 @@
         if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
           initAudio();
           const chosen = state.letterCase === 'lower' ? e.key.toLowerCase() : e.key.toUpperCase();
+          state.isRandomMode = false;
+          updateQuizModeUI();
           selectLetterForStandby(chosen);
           showToast('文字をセットしました（スタートを押して開始）');
           return;
@@ -1005,18 +1054,40 @@
         startCurrentPuzzle();
       });
 
-      // Random Select button in teacher drawer (safely guarded)
+      // Quick Re-roll Button on Standby screen (without opening drawer)
+      const standbyRerollBtn = document.getElementById('standbyRerollBtn');
+      if (standbyRerollBtn) {
+        standbyRerollBtn.addEventListener('click', () => {
+          initAudio();
+          pickRandomLetter();
+          showToast('新しい文字を再抽選してセットしました');
+        });
+      }
+
+      // Mode Selector buttons in Teacher drawer
+      document.getElementById('modeRandomBtn').addEventListener('click', () => {
+        state.isRandomMode = true;
+        updateQuizModeUI();
+        showToast('毎問ランダム出題モードをONにしました');
+      });
+
+      document.getElementById('modeManualBtn').addEventListener('click', () => {
+        state.isRandomMode = false;
+        updateQuizModeUI();
+        showToast('手動指定モードにしました');
+      });
+
+      // Random Select button in teacher drawer
       const randomBtn = document.getElementById('randomSelectBtn');
       if (randomBtn) {
         randomBtn.addEventListener('click', () => {
           initAudio();
-          const alphabet = state.letterCase === 'lower' ? 'abcdefghijklmnopqrstuvwxyz' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-          let nextChar;
-          do {
-            nextChar = alphabet[Math.floor(Math.random() * alphabet.length)];
-          } while (nextChar === state.text);
-          selectLetterForStandby(nextChar);
-          showToast(`ランダムで「${nextChar}」をセットしました`);
+          state.isRandomMode = true;
+          updateQuizModeUI();
+          const nextChar = pickRandomLetter();
+          document.getElementById('settingsDrawer').classList.add('-translate-x-full');
+          document.getElementById('drawerBackdrop').classList.add('hidden');
+          showToast(`ランダムでセットしました（次問も自動でランダムになります）`);
         });
       }
 
@@ -1038,10 +1109,16 @@
         });
       });
 
-      // Next Question Preparation (Opens standby curtain to let teacher choose next)
+      // Next Question Preparation (Advances question and automatically picks new letter if in random mode)
       document.getElementById('nextQuestionPrepareBtn').addEventListener('click', () => {
         initAudio();
         state.questionNumber++;
+        if (state.isRandomMode) {
+          pickRandomLetter();
+          showToast(`第 ${state.questionNumber} 問をランダムセットしました`);
+        } else {
+          showToast(`第 ${state.questionNumber} 問を準備中`);
+        }
         toggleStandby(true);
       });
 
@@ -1193,6 +1270,8 @@
         let val = customInput.value.trim();
         val = state.letterCase === 'lower' ? val.toLowerCase() : val.toUpperCase();
         if (!val) val = state.letterCase === 'lower' ? 'a' : 'A';
+        state.isRandomMode = false;
+        updateQuizModeUI();
         selectLetterForStandby(val);
         showToast(`「${val}」をセットしました（スタートで開始）`);
       };
@@ -1311,6 +1390,7 @@
       setupKeyboardShortcuts();
       setupEventListeners();
       
+      updateQuizModeUI();
       selectLetterForStandby('A');
       toggleStandby(true);
       setManualProgress(0);
